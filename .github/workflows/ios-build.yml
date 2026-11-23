@@ -1,0 +1,57 @@
+name: NOVA DSP iOS Build
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build iOS app
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version and project schemes
+        run: |
+          xcodebuild -version
+          xcodebuild -list -project NOVADSP.xcodeproj
+
+      - name: Build iOS Simulator target
+        run: |
+          xcodebuild \
+            -project NOVADSP.xcodeproj \
+            -scheme NOVADSP \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/NOVA-DSP-Simulator" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Build iPhone device target (unsigned)
+        run: |
+          xcodebuild \
+            -project NOVADSP.xcodeproj \
+            -scheme NOVADSP \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/NOVA-DSP-Device" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Upload unsigned iPhone app bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: NOVA-DSP-unsigned-iphone-build
+          path: "$RUNNER_TEMP/NOVA-DSP-Device/Build/Products/Release-iphoneos/NOVA DSP.app"
+          if-no-files-found: error
+          retention-days: 14
